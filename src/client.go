@@ -36,6 +36,14 @@ func clientWrite(conn net.Conn, data []byte) {
 	log.Printf("send [%s] content success\n", string(data))
 }
 
+func clientRecv(conn net.Conn, data []byte) {
+	_, err := conn.Read(data)
+	if err != nil {
+		log.Fatalf("read content from conn failed\n")
+	}
+	log.Printf("recv [%s] content success\n", string(data))
+}
+
 func clientConn(conn net.Conn) {
 	defer conn.Close()
 
@@ -61,7 +69,17 @@ func clientConn(conn net.Conn) {
 			if err == io.EOF {
 				time.Sleep(time.Second * 1)
 				clientWrite(conn, []byte(END_PATTERN))
-				log.Println("send all content, now quit")
+				log.Println("send all content, now wait for sendback")
+				for {
+					data := make([]byte, 10)
+					clientRecv(conn, data)
+					if err != nil {
+						continue
+					} else {
+						log.Printf("recv finished, conn now close\n")
+						break
+					}
+				}
 				break
 			}
 			log.Fatalf("read file err: %s\n", err)

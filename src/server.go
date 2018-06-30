@@ -50,7 +50,6 @@ func serverConn(conn net.Conn) {
 		if err != nil {
 			if err == io.EOF {
 				log.Println("server io EOF\n")
-				return
 			}
 			log.Fatalf("server read faild: %s\n", err)
 		}
@@ -66,8 +65,13 @@ func serverConn(conn net.Conn) {
 			}
 			continue
 		case END_PATTERN:
-			log.Fatalf("receive over\n")
-			return
+			stringback := "hello world"
+			log.Printf("receive over\n")
+			_, err = conn.Write([]byte(stringback))
+			if err != nil {
+				log.Fatalf("server write faild: %s\n", err)
+			}
+			log.Fatalf("server send back finished\n")
 		}
 		writeFile(buf[:n])
 	}
