@@ -9,12 +9,12 @@ import (
 	"time"
 )
 
-var CLIENT_FILE_PATH string = "../data/clinet_data.txt"
+var SENDER_FILE_PATH string = "../data/sender_data.txt"
 var BEGIN_PATTERN string = "start-->"
 var END_PATTERN string = "<--end"
-var SERVER_PORT string = ":8888"
+var SENDER_PORT string = ":8888"
 
-func clientRead(conn net.Conn) int {
+func senderRead(conn net.Conn) int {
 	buf := make([]byte, 5)
 	n, err := conn.Read(buf)
 	if err != nil {
@@ -28,7 +28,7 @@ func clientRead(conn net.Conn) int {
 	return off
 }
 
-func clientWrite(conn net.Conn, data []byte) {
+func senderWrite(conn net.Conn, data []byte) {
 	_, err := conn.Write(data)
 	if err != nil {
 		log.Fatalf("send [%s] content faild: %s\n", string(data), err)
@@ -36,7 +36,7 @@ func clientWrite(conn net.Conn, data []byte) {
 	log.Printf("send [%s] content success\n", string(data))
 }
 
-func clientRecv(conn net.Conn, data []byte) {
+func senderRecv(conn net.Conn, data []byte) {
 	_, err := conn.Read(data)
 	if err != nil {
 		log.Fatalf("read content from conn failed\n")
@@ -44,13 +44,13 @@ func clientRecv(conn net.Conn, data []byte) {
 	log.Printf("recv [%s] content success\n", string(data))
 }
 
-func clientConn(conn net.Conn) {
+func requestHandle(conn net.Conn) {
 	defer conn.Close()
 
-	clientWrite(conn, []byte(BEGIN_PATTERN))
-	off := clientRead(conn)
+	senderWrite(conn, []byte(BEGIN_PATTERN))
+	off := senderRead(conn)
 
-	fp, err := os.OpenFile(CLIENT_FILE_PATH, os.O_RDONLY, 0755)
+	fp, err := os.OpenFile(SENDER_FILE_PATH, os.O_RDONLY, 0755)
 	if err != nil {
 		log.Fatalf("open file faild: %s\n", err)
 	}
@@ -68,30 +68,29 @@ func clientConn(conn net.Conn) {
 		if err != nil {
 			if err == io.EOF {
 				time.Sleep(time.Second * 1)
-				clientWrite(conn, []byte(END_PATTERN))
+				senderWrite(conn, []byte(END_PATTERN))
 				log.Println("send all content, now wait for sendback")
-				for {
-					data := make([]byte, 10)
-					clientRecv(conn, data)
-					if err != nil {
-						continue
-					} else {
-						log.Printf("recv finished, conn now close\n")
-						break
-					}
-				}
 				break
 			}
 			log.Fatalf("read file err: %s\n", err)
 		}
-		clientWrite(conn, data[:n])
+		senderWrite(conn, data[:n])
 	}
 }
 
 func main() {
-	conn, err := net.DialTimeout("tcp", SERVER_PORT, time.Second*10)
+	l, err := net.Listen("tcp", SENDER_PORT)
 	if err != nil {
-		log.Fatalf("client dial faild: %s\n", err)
+		log.Fatalf("error listen: %s\n", err)
 	}
-	clientConn(conn)
+	defer l.Close()
+
+	for {
+		log.Println("waiting accept.")
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatalf("accept faild: %s\n", err)
+		}
+		requestHandle(conn)
+	}
 }
